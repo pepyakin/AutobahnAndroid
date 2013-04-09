@@ -73,6 +73,8 @@ public class WebSocketConnection implements WebSocket {
    private boolean mActive;
    private boolean mPrevConnected;
 
+   private Runnable mActivityCheck;
+
    /**
     * Asynch socket connector.
     */
@@ -186,6 +188,8 @@ public class WebSocketConnection implements WebSocket {
                
                mPrevConnected = true;
 
+               resetActivityCheck();
+
             } catch (Exception e) {
 
                onClose(WebSocketConnectionHandler.CLOSE_INTERNAL_ERROR, e.getMessage());
@@ -281,18 +285,11 @@ public class WebSocketConnection implements WebSocket {
          if (DEBUG) Log.d(TAG, "mTransportChannel already NULL");
       }
 
-/*
-      if (mWsHandler != null) {
-         try {
-            mWsHandler.onClose(code, reason);
-         } catch (Exception e) {
-            if (DEBUG) Log.wtf(TAG, e);
-         }
-         //mWsHandler = null;
-      } else {
-         if (DEBUG) Log.d(TAG, "mWsHandler already NULL");
+      // stop activity check
+      if (mActivityCheck != null) {
+         mMasterHandler.removeCallbacks(mActivityCheck);
       }
-*/
+
       onClose(code, reason);
 
       if (DEBUG) Log.d(TAG, "worker threads stopped");
@@ -384,6 +381,11 @@ public class WebSocketConnection implements WebSocket {
       }
       mActive = false;
       mPrevConnected = false;
+
+      if (mActivityCheck != null) {
+         mMasterHandler.removeCallbacks(mActivityCheck);
+         mActivityCheck = null;
+      }
    }
    
    /**
@@ -465,6 +467,8 @@ public class WebSocketConnection implements WebSocket {
       mMasterHandler = new Handler() {
 
          public void handleMessage(Message msg) {
+
+            resetActivityCheck();
 
             if (msg.obj instanceof WebSocketMessage.TextMessage) {
 
@@ -594,5 +598,31 @@ public class WebSocketConnection implements WebSocket {
       mReader.start();
 
       if (DEBUG) Log.d(TAG, "WS reader created and started");
+   }
+
+   protected void resetActivityCheck() {
+	   if (mActivityCheck != null) {
+		   mMasterHandler.removeCallbacks(mActivityCheck);
+	   }
+	   mActivityCheck = new Runnable() {
+
+		   public void run() {
+			   if (DEBUG) Log.w(TAG, "Send ping");
+
+			   mWriter.forward(new WebSocketMessage.Ping());
+
+			   mActivityCheck = new Runnable() {
+
+				   public void run() {
+					   if (DEBUG) Log.w(TAG, "No activity - connection lost");
+
+					   failConnection(WebSocketConnectionHandler.CLOSE_CONNECTION_LOST, "No activity");
+					   mActivityCheck = null;
+				   }
+			   };
+			   mMasterHandler.postDelayed(mActivityCheck, mOptions.getPongTimeout());
+		   }
+	   };
+	   mMasterHandler.postDelayed(mActivityCheck, mOptions.getActivityTimeout());
    }
 }
