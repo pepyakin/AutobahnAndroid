@@ -277,7 +277,7 @@ public class WebSocketConnection implements WebSocket {
       if (mTransportChannel != null) {
          try {
             mTransportChannel.close();
-         } catch (IOException e) {
+         } catch (Exception e) {
             if (DEBUG) Log.wtf(TAG, e);
          }
          //mTransportChannel = null;
