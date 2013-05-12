@@ -663,7 +663,7 @@ public class WebSocketReader extends Thread {
 
       } else if (mState == STATE_CONNECTING) {
 
-         return processHandshake();
+         return processHandshake2();
 
       } else if (mState == STATE_CLOSED) {
 
@@ -722,7 +722,7 @@ public class WebSocketReader extends Thread {
     	  if (DEBUG) Log.d(TAG, "run() : SocketException (" + e.toString() + ")");
     	  
     	  // wrap the exception and notify master
-    	  notify(new WebSocketMessage.ConnectionLost());;
+    	  notify(new WebSocketMessage.ConnectionLost());
     	  
       } catch (Exception e) {
 
