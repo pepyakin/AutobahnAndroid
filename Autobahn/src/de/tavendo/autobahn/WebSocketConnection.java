@@ -244,6 +244,18 @@ public class WebSocketConnection implements WebSocket {
 
         if (DEBUG) Log.d(TAG, "fail connection [code = " + code + ", reason = " + reason);
 
+
+        if (mTransportChannel != null) {
+            try {
+                mTransportChannel.close();
+            } catch (Exception e) {
+                if (DEBUG) Log.wtf(TAG, e);
+            }
+            //mTransportChannel = null;
+        } else {
+            if (DEBUG) Log.d(TAG, "mTransportChannel already NULL");
+        }
+
         if (mReader != null) {
             mReader.quit();
             try {
@@ -272,17 +284,6 @@ public class WebSocketConnection implements WebSocket {
             //mWriterThread = null;
         } else {
             if (DEBUG) Log.d(TAG, "mWriter already NULL");
-        }
-
-        if (mTransportChannel != null) {
-            try {
-                mTransportChannel.close();
-            } catch (Exception e) {
-                if (DEBUG) Log.wtf(TAG, e);
-            }
-            //mTransportChannel = null;
-        } else {
-            if (DEBUG) Log.d(TAG, "mTransportChannel already NULL");
         }
 
 
