@@ -440,7 +440,8 @@ public class WebSocketConnection implements WebSocket {
         boolean reconnecting = false;
 
         if ((code == WebSocket.ConnectionHandler.CLOSE_CANNOT_CONNECT) ||
-                (code == WebSocket.ConnectionHandler.CLOSE_CONNECTION_LOST)) {
+                (code == WebSocket.ConnectionHandler.CLOSE_CONNECTION_LOST)
+                || (code == ConnectionHandler.CLOSE_INTERNAL_ERROR)) {
             reconnecting = scheduleReconnect();
         }
 
