@@ -18,7 +18,6 @@
 
 package de.tavendo.autobahn;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
@@ -74,6 +73,7 @@ public class WebSocketConnection implements WebSocket {
     private boolean mPrevConnected;
 
     private Runnable mActivityCheck;
+    private Runnable mReconnectionCallback;
 
     /**
      * Asynch socket connector.
@@ -388,6 +388,11 @@ public class WebSocketConnection implements WebSocket {
             mMasterHandler.removeCallbacks(mActivityCheck);
             mActivityCheck = null;
         }
+
+        if (mReconnectionCallback != null) {
+            mMasterHandler.removeCallbacks(mReconnectionCallback);
+            mReconnectionCallback = null;
+        }
     }
 
     /**
@@ -419,13 +424,14 @@ public class WebSocketConnection implements WebSocket {
         boolean need = mActive && mPrevConnected && (interval > 0);
         if (need) {
             if (DEBUG) Log.d(TAG, "Reconnection scheduled");
-            mMasterHandler.postDelayed(new Runnable() {
+            mReconnectionCallback = new Runnable() {
 
                 public void run() {
                     if (DEBUG) Log.d(TAG, "Reconnecting...");
                     reconnect();
                 }
-            }, interval);
+            };
+            mMasterHandler.postDelayed(mReconnectionCallback, interval);
         }
         return need;
     }
