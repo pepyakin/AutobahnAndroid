@@ -561,10 +561,11 @@ public class WebSocketReader extends Thread {
 
             // Check HTTP status code
             boolean serverError = false;
-            if (mBuffer[pos+0] == 'H' &&
-                mBuffer[pos+1] == 'T' &&
-                mBuffer[pos+2] == 'T' &&
-                mBuffer[pos+3] == 'P') {
+
+            if (mBuffer[0] == 'H' &&
+                mBuffer[1] == 'T' &&
+                mBuffer[2] == 'T' &&
+                mBuffer[3] == 'P') {
             	
             	Pair<Integer, String> status = parseHttpStatus();
             	if (status.first != 101) {
