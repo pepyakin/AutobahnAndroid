@@ -48,6 +48,9 @@ public class WebSocketConnection implements WebSocket {
     private static final boolean DEBUG = true;
     private static final String TAG = WebSocketConnection.class.getName();
 
+    public static final int MSG_NOTIFY = 1;
+    private static final int MSG_RECONNECT = 2;
+
     protected Handler mMasterHandler;
 
     protected WebSocketReader mReader;
@@ -286,16 +289,14 @@ public class WebSocketConnection implements WebSocket {
             if (DEBUG) Log.d(TAG, "mWriter already NULL");
         }
 
-
-        // stop activity check
-        if (mActivityCheck != null) {
-            mMasterHandler.removeCallbacks(mActivityCheck);
-        }
+        unscheduleActivityCheck();
+        unscheduleReconnect();
 
         onClose(code, reason);
 
         if (DEBUG) Log.d(TAG, "worker threads stopped");
     }
+
 
 
     public void connect(String wsUri, WebSocket.ConnectionHandler wsHandler) throws WebSocketException {
@@ -384,15 +385,19 @@ public class WebSocketConnection implements WebSocket {
         mActive = false;
         mPrevConnected = false;
 
+        unscheduleActivityCheck();
+        unscheduleReconnect();
+    }
+
+    private void unscheduleActivityCheck() {
         if (mActivityCheck != null) {
             mMasterHandler.removeCallbacks(mActivityCheck);
             mActivityCheck = null;
         }
+    }
 
-        if (mReconnectionCallback != null) {
-            mMasterHandler.removeCallbacks(mReconnectionCallback);
-            mReconnectionCallback = null;
-        }
+    private void unscheduleReconnect() {
+        mMasterHandler.removeMessages(MSG_RECONNECT);
     }
 
     /**
@@ -402,10 +407,13 @@ public class WebSocketConnection implements WebSocket {
      */
     public boolean reconnect() {
         if (!isConnected() && (mWsUri != null)) {
+            if (DEBUG) Log.d(TAG, "performing reconnect");
             new WebSocketConnector().execute();
             return true;
+        } else {
+            if (DEBUG) Log.d(TAG, "not performing reconnect, isConnected: " + isConnected());
+            return false;
         }
-        return false;
     }
 
     /**
@@ -423,15 +431,10 @@ public class WebSocketConnection implements WebSocket {
         int interval = mOptions.getReconnectInterval();
         boolean need = mActive && mPrevConnected && (interval > 0);
         if (need) {
-            if (DEBUG) Log.d(TAG, "Reconnection scheduled");
-            mReconnectionCallback = new Runnable() {
+            unscheduleReconnect();
 
-                public void run() {
-                    if (DEBUG) Log.d(TAG, "Reconnecting...");
-                    reconnect();
-                }
-            };
-            mMasterHandler.postDelayed(mReconnectionCallback, interval);
+            if (DEBUG) Log.d(TAG, "Reconnection scheduled");
+            mMasterHandler.sendEmptyMessageDelayed(MSG_RECONNECT, interval);
         }
         return need;
     }
@@ -478,6 +481,21 @@ public class WebSocketConnection implements WebSocket {
 
             public void handleMessage(Message msg) {
 
+                switch (msg.what) {
+                    case MSG_RECONNECT:
+                        if (DEBUG) Log.d(TAG, "Reconnecting...");
+                        reconnect();
+                        unscheduleReconnect();
+                        break;
+
+                    case MSG_NOTIFY:
+                    default:
+                        handleNotify(msg);
+                        break;
+                }
+            }
+
+            private void handleNotify(Message msg) {
                 resetActivityCheck();
 
                 if (msg.obj instanceof WebSocketMessage.TextMessage) {
@@ -612,9 +630,8 @@ public class WebSocketConnection implements WebSocket {
     }
 
     protected void resetActivityCheck() {
-        if (mActivityCheck != null) {
-            mMasterHandler.removeCallbacks(mActivityCheck);
-        }
+        unscheduleActivityCheck();
+
         mActivityCheck = new Runnable() {
 
             public void run() {

@@ -111,6 +111,7 @@ public class WebSocketWriter extends Handler {
 
       Message msg = mMaster.obtainMessage();
       msg.obj = message;
+      msg.what = WebSocketConnection.MSG_NOTIFY;
       mMaster.sendMessage(msg);
    }
 

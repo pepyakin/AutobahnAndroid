@@ -128,6 +128,7 @@ public class WebSocketReader extends Thread {
 
       Message msg = mMaster.obtainMessage();
       msg.obj = message;
+      msg.what = WebSocketConnection.MSG_NOTIFY;
       mMaster.sendMessage(msg);
    }
 
