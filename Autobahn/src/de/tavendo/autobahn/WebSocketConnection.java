@@ -247,13 +247,18 @@ public class WebSocketConnection implements WebSocket {
 
         if (DEBUG) Log.d(TAG, "fail connection [code = " + code + ", reason = " + reason);
 
-
         if (mTransportChannel != null) {
-            try {
-                mTransportChannel.close();
-            } catch (Exception e) {
-                if (DEBUG) Log.wtf(TAG, e);
-            }
+            new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        mTransportChannel.close();
+                    } catch (Exception e) {
+                        if (DEBUG) Log.wtf(TAG, e);
+                    }
+                }
+            }.start();
+
             //mTransportChannel = null;
         } else {
             if (DEBUG) Log.d(TAG, "mTransportChannel already NULL");
