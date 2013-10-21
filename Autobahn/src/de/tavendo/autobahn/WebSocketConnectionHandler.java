@@ -18,6 +18,8 @@
 
 package de.tavendo.autobahn;
 
+import android.os.Bundle;
+
 /**
  * WebSockets event handler. Users will usually provide an instance of a class
  * derived from this to handle WebSockets received messages and open/close events
@@ -36,9 +38,9 @@ public class WebSocketConnectionHandler implements WebSocket.ConnectionHandler {
     * not established in the first place).
     *
     * @param code       Close code.
-    * @param reason     Close reason (human-readable).
+    * @param data       Close reason (human-readable).
     */
-   public void onClose(int code, String reason) {
+   public void onClose(int code, Bundle data) {
    }
 
    /**

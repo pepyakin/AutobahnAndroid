@@ -1,5 +1,7 @@
 package de.tavendo.autobahn;
 
+import android.os.Bundle;
+
 public interface WebSocket {
 
    /**
@@ -54,9 +56,9 @@ public interface WebSocket {
        * not established in the first place).
        *
        * @param code       Close code.
-       * @param reason     Close reason (human-readable).
+       * @param data       Additional data
        */
-      public void onClose(int code, String reason);
+      public void onClose(int code, Bundle data);
 
       /**
        * Fired when a text message has been received (and text

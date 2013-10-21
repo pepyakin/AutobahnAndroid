@@ -37,16 +37,17 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 
-import android.os.AsyncTask;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Message;
+import android.os.*;
 import android.util.Log;
 
 public class WebSocketConnection implements WebSocket {
 
     private static final boolean DEBUG = true;
     private static final String TAG = WebSocketConnection.class.getName();
+
+    public static final String EXTRA_REASON = "de.tavendo.autobahn.extra.REASON";
+    public static final String EXTRA_STATUS_CODE = "de.tavendo.autobahn.extra.STATUS_CODE";
+    public static final String EXTRA_STATUS_MESSAGE = "de.tavendo.autobahn.extra.STATUS_MSG";
 
     public static final int MSG_NOTIFY = 1;
     private static final int MSG_RECONNECT = 2;
@@ -242,10 +243,8 @@ public class WebSocketConnection implements WebSocket {
         return mTransportChannel != null && mTransportChannel.isConnected() && !mTransportChannel.isClosed();
     }
 
-
-    private void failConnection(int code, String reason) {
-
-        if (DEBUG) Log.d(TAG, "fail connection [code = " + code + ", reason = " + reason);
+    private void failConnection(int code, Bundle data) {
+        if (DEBUG) Log.d(TAG, "fail connection [code = " + code + ", reason = " + data);
 
         if (mTransportChannel != null) {
             new Thread() {
@@ -297,11 +296,21 @@ public class WebSocketConnection implements WebSocket {
         unscheduleActivityCheck();
         unscheduleReconnect();
 
-        onClose(code, reason);
+        onClose(code, data);
 
         if (DEBUG) Log.d(TAG, "worker threads stopped");
     }
 
+    private void failConnection(int code, String reason) {
+        Bundle bundle = getBundleWithReason(reason);
+        failConnection(code, bundle);
+    }
+
+    private static Bundle getBundleWithReason(String reason) {
+        Bundle bundle = new Bundle();
+        bundle.putString(EXTRA_REASON, reason);
+        return bundle;
+    }
 
 
     public void connect(String wsUri, WebSocket.ConnectionHandler wsHandler) throws WebSocketException {
@@ -444,28 +453,21 @@ public class WebSocketConnection implements WebSocket {
         return need;
     }
 
-    /**
-     * Common close handler
-     *
-     * @param code   Close code.
-     * @param reason Close reason (human-readable).
-     */
-    private void onClose(int code, String reason) {
+    private void onClose(int code, Bundle data) {
         boolean reconnecting = false;
 
         if ((code == WebSocket.ConnectionHandler.CLOSE_CANNOT_CONNECT) ||
-                (code == WebSocket.ConnectionHandler.CLOSE_CONNECTION_LOST)
-                || (code == ConnectionHandler.CLOSE_INTERNAL_ERROR)) {
+            (code == WebSocket.ConnectionHandler.CLOSE_CONNECTION_LOST)
+            || (code == ConnectionHandler.CLOSE_INTERNAL_ERROR)) {
             reconnecting = scheduleReconnect();
         }
-
 
         if (mWsHandler != null) {
             try {
                 if (reconnecting) {
-                    mWsHandler.onClose(WebSocket.ConnectionHandler.CLOSE_RECONNECT, reason);
+                    mWsHandler.onClose(WebSocket.ConnectionHandler.CLOSE_RECONNECT, data);
                 } else {
-                    mWsHandler.onClose(code, reason);
+                    mWsHandler.onClose(code, data);
                 }
             } catch (Exception e) {
                 if (DEBUG) e.printStackTrace();
@@ -476,6 +478,16 @@ public class WebSocketConnection implements WebSocket {
         }
     }
 
+    /**
+     * Common close handler
+     *
+     * @param code   Close code.
+     * @param reason Close reason (human-readable).
+     */
+    private void onClose(int code, String reason) {
+        Bundle bundle = getBundleWithReason(reason);
+        onClose(code, bundle);
+    }
 
     /**
      * Create master message handler.
@@ -590,9 +602,12 @@ public class WebSocketConnection implements WebSocket {
                     failConnection(WebSocketConnectionHandler.CLOSE_INTERNAL_ERROR, "WebSockets internal error (" + error.mException.toString() + ")");
 
                 } else if (msg.obj instanceof WebSocketMessage.ServerError) {
-
                     WebSocketMessage.ServerError error = (WebSocketMessage.ServerError) msg.obj;
-                    failConnection(WebSocketConnectionHandler.CLOSE_SERVER_ERROR, "Server error " + error.mStatusCode + " (" + error.mStatusMessage + ")");
+
+                    Bundle bundle = new Bundle();
+                    bundle.putInt(EXTRA_STATUS_CODE, error.mStatusCode);
+                    bundle.putString(EXTRA_STATUS_MESSAGE, error.mStatusMessage);
+                    failConnection(WebSocketConnectionHandler.CLOSE_SERVER_ERROR, bundle);
 
                 } else {
 
@@ -617,6 +632,7 @@ public class WebSocketConnection implements WebSocket {
 
         mWriterThread = new HandlerThread("WebSocketWriter");
         mWriterThread.start();
+
         mWriter = new WebSocketWriter(mWriterThread.getLooper(), mMasterHandler, mOut, mOptions);
 
         if (DEBUG) Log.d(TAG, "WS writer created and started");
